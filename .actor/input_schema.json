@@ -1,0 +1,44 @@
+{
+    "$schema": "https://apify.com/schemas/v1/input.ide.json",
+    "title": "Diario Oficial Chile Monitor Configuration",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "sections": {
+            "title": "Sections to extract",
+            "type": "array",
+            "description": "Which sections of the edition to fetch. Not every section publishes content every day - a section with nothing that day returns 404 from the source and is skipped, not treated as an error.",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": [
+                    "normas_generales",
+                    "avisos_destacados",
+                    "marcas_patentes",
+                    "normas_particulares",
+                    "publicaciones_judiciales",
+                    "empresas_cooperativas",
+                    "bom"
+                ],
+                "enumTitles": [
+                    "Normas Generales",
+                    "Avisos Destacados",
+                    "Marcas y Patentes",
+                    "Normas Particulares",
+                    "Publicaciones Judiciales",
+                    "Empresas y Cooperativas",
+                    "Boletin Oficial de Mineria"
+                ]
+            },
+            "default": ["normas_generales"],
+            "minItems": 1
+        },
+        "maxItems": {
+            "title": "Max entries to extract",
+            "type": "integer",
+            "description": "Hard cap on the number of publications returned this run, across all selected sections.",
+            "default": 300,
+            "minimum": 1
+        }
+    }
+}

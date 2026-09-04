@@ -1,0 +1,21 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "diario-oficial-cl-monitor",
+    "title": "Diario Oficial Chile Monitor",
+    "description": "Extracts today's edition of Chile's Diario Oficial (official gazette): laws, decrees and resolutions with full hierarchy (branch, ministry, agency) and direct PDF links per publication.",
+    "version": "1.0",
+    "buildTag": "latest",
+    "minMemoryMbytes": 256,
+    "maxMemoryMbytes": 512,
+    "meta": {
+        "templateId": "ts-crawlee-cheerio",
+        "generatedBy": "Claude Code with Claude Sonnet 5"
+    },
+    "inputSchema": "./input_schema.json",
+    "outputSchema": "./output_schema.json",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    },
+    "dockerfile": "../Dockerfile"
+}

@@ -1,0 +1,38 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "actorSpecification": 1,
+    "title": "Dataset Schema",
+    "fields": {
+        "type": "object",
+        "properties": {
+            "rama": { "title": "Rama", "type": ["string", "null"], "description": "Branch of government, e.g. PODER EJECUTIVO" },
+            "ministerio": { "title": "Ministerio", "type": ["string", "null"], "description": "Ministry or top-level agency" },
+            "organismo": { "title": "Organismo", "type": ["string", "null"], "description": "Sub-agency, e.g. a Subsecretaria" },
+            "descripcion": { "title": "Descripcion", "type": "string", "description": "The publication entry text" },
+            "pdfUrl": { "title": "PDF URL", "type": ["string", "null"], "description": "Direct link to the official PDF" },
+            "cve": { "title": "CVE", "type": ["string", "null"], "description": "Codigo de Verificacion Electronica" },
+            "seccion": { "title": "Seccion", "type": "string", "description": "Which section this entry came from" },
+            "edicion": { "title": "Edicion", "type": "string", "description": "Edition number" },
+            "fecha": { "title": "Fecha", "type": "string", "description": "Edition date, DD-MM-YYYY" },
+            "scrapedAt": { "title": "Scraped at", "type": "string", "description": "ISO timestamp of extraction" }
+        }
+    },
+    "views": {
+        "overview": {
+            "title": "Overview",
+            "transformation": {
+                "fields": ["ministerio", "organismo", "descripcion", "seccion", "fecha"]
+            },
+            "display": {
+                "component": "table",
+                "columns": [
+                    { "label": "Ministerio", "format": "text", "field": "ministerio" },
+                    { "label": "Organismo", "format": "text", "field": "organismo" },
+                    { "label": "Descripcion", "format": "text", "field": "descripcion" },
+                    { "label": "Seccion", "format": "text", "field": "seccion" },
+                    { "label": "Fecha", "format": "text", "field": "fecha" }
+                ]
+            }
+        }
+    }
+}
