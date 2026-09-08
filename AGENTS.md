@@ -65,6 +65,59 @@ order. `main.ts` now tracks a single running counter across all sections
 in one sequential loop, which was simpler once CheerioCrawler was removed
 anyway.
 
+## Delta engine v2 (2026-09-08)
+
+This actor never had ANY delta engine, envelope, or onlyNew concept before
+this pass - it simply re-extracted today's full edition every run, with
+no notion of "seen before". Added `src/state.ts`, `src/fingerprint.ts`,
+`src/delta.ts`.
+
+- **This domain has no status or lifecycle concept at all - the fleet's
+  usual STATUS_CHANGE/CLOSED categories were considered and explicitly
+  NOT built here, not omitted by oversight.** A published law, decree or
+  resolution is a permanent public record; it does not get "adjudicated"
+  or "closed" the way a tender does. The one real thing that CAN happen
+  to a published entry is a correction (a fe de erratas) re-published
+  under the same CVE with amended text - that is `UPDATED`. Everything
+  else is `NEW_LISTING` (first time seen) or `UNCHANGED`.
+- **`record_id` = `cve` when present, a content-hash fallback otherwise**
+  (`src/fingerprint.ts`'s `recordIdOf`). CVE (Codigo de Verificacion
+  Electronica) is the source's own real per-publication id, extracted via
+  regex from the link text (`src/parsers/table.ts`) - it can be `null` if
+  that pattern doesn't match, a real, disclosed edge case (not verified
+  live how often this happens). The fallback mirrors
+  entrerios-compras-monitor's approach for a source with no reliable
+  native id at all: `sha1(seccion|edicion|descripcion|pdfUrl)`.
+- **`source_url` uses `pdfUrl` when present, not a shared listing URL.**
+  Unlike most of this fleet's sibling actors (Cordoba, Salta, PBA, Entre
+  Rios), this source genuinely has a per-publication deep link - the
+  official PDF - so there's no need to fall back to a generic page.
+- **Deliberately no `dateRange` input.** Every entry pushed by one run
+  shares the exact same `fecha` (the resolved edition's date) - a
+  date-range filter here would be a trivial pass/fail-everything
+  operation, not a meaningful per-record filter. Kept out entirely rather
+  than added as a disclosed no-op (the choice entrerios-compras-monitor
+  made for its own no-op case) - there, the field already existed from
+  the v1 retrofit and removing it would have been a breaking input-shape
+  change; here, there was never a dateRange input to begin with, so
+  adding one just for shape-consistency with the rest of the fleet would
+  be theater with no real function.
+- **Still "today only" - no historical-date support added.** The
+  existing `resolveTodayEdition()` only resolves today's edition number;
+  there is no live-verified way to compute a past date's edition number
+  (not a simple offset from the calendar date, per the existing note in
+  `resolve.ts`). Extending this to accept an arbitrary date is a natural
+  future addition, not attempted in this pass without first live-
+  verifying the edition-resolution mechanism for a past date.
+- **Pricing unchanged**: single `result` event, same as v1 - no natural
+  detail/summary cost split exists here (every entry is already fully
+  parsed inline, same reasoning as tucuman-compras-monitor and
+  entrerios-compras-monitor). `Actor.charge()` kept as the original
+  separate call (not `pushData(item, eventName)`) since there's only one
+  tier - no double-charge risk to design around.
+- New `onlyNew`/`eventTypes` inputs, matching the fleet convention where
+  they apply to this domain.
+
 ## Memory
 
 `minMemoryMbytes`/`maxMemoryMbytes` are 256/512 in `.actor/actor.json` -

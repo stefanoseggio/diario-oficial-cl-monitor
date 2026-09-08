@@ -2,9 +2,9 @@
     "$schema": "https://apify.com/schemas/v1/actor.ide.json",
     "actorSpecification": 1,
     "name": "diario-oficial-cl-monitor",
-    "title": "Diario Oficial Chile Monitor",
+    "title": "Diario Oficial Chile Scraper & Monitor",
     "description": "Extracts today's edition of Chile's Diario Oficial (official gazette): laws, decrees and resolutions with full hierarchy (branch, ministry, agency) and direct PDF links per publication.",
-    "version": "1.0",
+    "version": "2.0",
     "buildTag": "latest",
     "minMemoryMbytes": 256,
     "maxMemoryMbytes": 512,
@@ -17,5 +17,6 @@
     "storages": {
         "dataset": "./dataset_schema.json"
     },
+    "changelog": "../CHANGELOG.md",
     "dockerfile": "../Dockerfile"
 }

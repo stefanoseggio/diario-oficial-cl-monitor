@@ -39,6 +39,24 @@
             "description": "Hard cap on the number of publications returned this run, across all selected sections.",
             "default": 300,
             "minimum": 1
+        },
+        "onlyNew": {
+            "title": "Only new records (delta mode)",
+            "type": "boolean",
+            "description": "Return only publications that are new or amended (a correction re-published under the same CVE) since a prior run today, tracked in a named key-value store scoped to this actor. Most useful re-running the same day's edition on a schedule to catch late additions/corrections. There is no CLOSED or status-change event in this domain - a published legal notice is never withdrawn or 'closed', it is a permanent public record.",
+            "default": false
+        },
+        "eventTypes": {
+            "title": "Event types to deliver",
+            "type": "array",
+            "description": "Which kinds of change to deliver when 'Only new records' is on (ignored, everything delivered, when it is off). NEW_LISTING = never seen before. UPDATED = same CVE (or identity), the content changed - a correction.",
+            "editor": "select",
+            "items": {
+                "type": "string",
+                "enum": ["NEW_LISTING", "UPDATED"],
+                "enumTitles": ["NEW_LISTING - never seen before", "UPDATED - a correction to a known entry"]
+            },
+            "default": ["NEW_LISTING", "UPDATED"]
         }
     }
 }

@@ -14,7 +14,12 @@
             "seccion": { "title": "Seccion", "type": "string", "description": "Which section this entry came from" },
             "edicion": { "title": "Edicion", "type": "string", "description": "Edition number" },
             "fecha": { "title": "Fecha", "type": "string", "description": "Edition date, DD-MM-YYYY" },
-            "scrapedAt": { "title": "Scraped at", "type": "string", "description": "ISO timestamp of extraction" }
+            "scrapedAt": { "title": "Scraped at", "type": "string", "description": "ISO timestamp of extraction" },
+            "record_id": { "title": "Record ID", "type": "string", "description": "The CVE when present, otherwise a content hash - see AGENTS.md." },
+            "event_type": { "title": "Event Type", "type": "string", "description": "NEW_LISTING (never seen before), UPDATED (a correction to a known entry) or UNCHANGED (only when Only new records is off)." },
+            "is_new": { "title": "Is New", "type": "boolean", "description": "True if this id was not in the persisted seen-set when this run started." },
+            "source_url": { "title": "Source URL", "type": "string", "description": "The publication's own PDF link when present, otherwise the shared section page." },
+            "contentHash": { "title": "Content Hash", "type": "string", "description": "sha1 fingerprint used to detect UPDATED (a correction) between runs." }
         }
     },
     "views": {
@@ -31,6 +36,23 @@
                     { "label": "Descripcion", "format": "text", "field": "descripcion" },
                     { "label": "Seccion", "format": "text", "field": "seccion" },
                     { "label": "Fecha", "format": "text", "field": "fecha" }
+                ]
+            }
+        },
+        "changes": {
+            "title": "New & corrected entries",
+            "transformation": {
+                "fields": ["record_id", "event_type", "ministerio", "descripcion", "source_url", "scrapedAt"]
+            },
+            "display": {
+                "component": "table",
+                "columns": [
+                    { "label": "CVE", "format": "text", "field": "record_id" },
+                    { "label": "Evento", "format": "text", "field": "event_type" },
+                    { "label": "Ministerio", "format": "text", "field": "ministerio" },
+                    { "label": "Descripcion", "format": "text", "field": "descripcion" },
+                    { "label": "PDF", "format": "link", "field": "source_url" },
+                    { "label": "Detectado", "format": "date", "field": "scrapedAt" }
                 ]
             }
         }
