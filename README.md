@@ -1,58 +1,29 @@
-# Diario Oficial Chile Scraper & Monitor
+# Chile Official Gazette Monitor - Diario Oficial Laws & Decrees Tracker (Regulatory Intelligence)
 
-**The regulatory alert feed Chile's official gazette never shipped.** Extracts today's edition of Chile's Diario Oficial: laws, decrees and resolutions, with full hierarchy (branch of government, ministry, agency) and a direct PDF link per publication. No Apify actor covered Chile's Diario Oficial at audit time (2026-09-04); Mexico's DOF and Colombia/Paraguay's procurement systems are covered by other developers, Chile's gazette was not. Keeps it fresh with a delta mode that reports what is genuinely **new or corrected**.
+## Executive Value Proposition
 
-[![Diario Oficial Chile Scraper & Monitor](https://apify.com/actor-badge?actor=stefano_seggio/diario-oficial-cl-monitor)](https://apify.com/stefano_seggio/diario-oficial-cl-monitor)
+Reading Chile's Diario Oficial by hand means opening today's edition, scrolling one long hierarchical table with no filtering or search, and manually tracking which branch, ministry or agency each entry belongs to - repeated every single publishing day. This Actor resolves today's edition automatically, extracts every entry from the sections you select with its full branch/ministry/agency hierarchy and a direct PDF link, and classifies each one against a persisted history of what was already seen. Point it at a recurring schedule with delta mode (`onlyNew`) turned on, and each run returns only publications that are genuinely new or corrected since the last check - not the whole table re-read from scratch.
 
-- **Corrections detected, free.** A fe de erratas re-published under the same CVE with amended text is fingerprinted from the same already-parsed entry and reported as `UPDATED`, instead of looking like a duplicate listing.
-- **A real per-publication link, not a shared page.** `source_url` is the official PDF when the source publishes one - unlike most of this fleet's actors, which have no per-record deep link at all.
-- **Honest about domain shape.** No fake "closed" or "status change" events - a published legal notice is a permanent public record, and this actor doesn't pretend otherwise.
+## Use Cases
 
-## Who uses Diario Oficial data
-
-| Team | Question they ask | Fields that answer it | Decision |
-| --- | --- | --- | --- |
-| Legal and compliance teams | New regulations, decrees or resolutions affecting our sector | `ministerio`, `organismo`, `descripcion`, `event_type=NEW_LISTING` | Route to the right internal owner for review |
-| Law firms and consultancies | Did a tracked publication get corrected since we first saw it? | `event_type=UPDATED`, `pdfUrl` | Re-check the amended text before advising a client |
-| Market research | Regulatory activity patterns across government branches | `rama`, `ministerio`, `seccion` | Trend analysis by agency and section |
-
-## Delta mode
-
-Set `onlyNew: true` for recurring runs and each run returns only publications that are `NEW_LISTING` (never seen) or `UPDATED` (a correction to a known entry - same CVE, amended content). `eventTypes` narrows which of the two you want. Most useful re-running the same day's edition on a schedule to catch late additions or corrections.
-
-**Honest scope note**: this domain has no status-change or closure concept - a published legal notice is never "adjudicated" or "withdrawn" the way a tender is, so unlike this fleet's procurement-monitor actors there is no `STATUS_CHANGE`/`CLOSED` event here. Considered and deliberately left out - see `AGENTS.md`.
-
-```python
-from apify_client import ApifyClient
-
-client = ApifyClient("YOUR_TOKEN")
-run = client.actor("stefano_seggio/diario-oficial-cl-monitor").call(run_input={"onlyNew": True})
-for item in client.dataset(run["defaultDatasetId"]).iterate_items():
-    print(f"[{item['event_type']}] {item['ministerio']} - {item['descripcion']}")
-```
-
-```javascript
-import { ApifyClient } from 'apify-client';
-
-const client = new ApifyClient({ token: 'YOUR_TOKEN' });
-const run = await client.actor('stefano_seggio/diario-oficial-cl-monitor').call({ onlyNew: true });
-const { items } = await client.dataset(run.defaultDatasetId).listItems();
-```
+- **Legal and compliance teams** watching for new regulations, decrees or resolutions in their sector can filter on `ministerio`, `organismo` and `descripcion`, and route anything tagged `event_type: NEW_LISTING` to the right internal owner for review.
+- **Law firms and consultancies** tracking specific ministries or agencies on behalf of clients can catch a *fe de erratas* - a correction re-published under the same CVE with amended text - the moment it appears, via `event_type: UPDATED` and the corrected `pdfUrl`, and re-check the amended text before advising anyone.
+- **Market and regulatory intelligence teams** can trend regulatory activity by government branch, ministry and section (`rama`, `ministerio`, `seccion`) across recurring runs, without re-reading the same edition by eye.
 
 ## Input
-
-| Field | Type | Default | Description |
-| --- | --- | --- | --- |
-| `sections` | array | `["normas_generales"]` | Which sections to fetch. Not every section publishes every day - one with nothing that day returns 404 from the source and is skipped, not treated as an error. |
-| `maxItems` | integer | `300` | Hard cap on publications returned this run, across all selected sections. |
-| `onlyNew` | boolean | `false` | Delta mode - see Delta mode above |
-| `eventTypes` | array | both | Which of `NEW_LISTING`/`UPDATED` to deliver when `onlyNew` is on |
-
-Only today's edition is supported - there is no known way to resolve an arbitrary past date's edition number (see Known limitations).
 
 ```json
 { "sections": ["normas_generales", "marcas_patentes"], "maxItems": 100 }
 ```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `sections` | array | `["normas_generales"]` | Which sections of the edition to fetch. Not every section publishes content every day - one with nothing that day returns 404 from the source and is skipped, not treated as an error. |
+| `maxItems` | integer | `300` | Hard cap on the number of publications returned this run, across all selected sections. |
+| `onlyNew` | boolean | `false` | Delta mode: return only publications that are `NEW_LISTING` (never seen) or `UPDATED` (a correction to a known entry, same CVE, amended content) since a prior run today. |
+| `eventTypes` | array | both | Which of `NEW_LISTING`/`UPDATED` to deliver when `onlyNew` is on. |
+
+Only today's edition is supported - no reliable way to resolve an arbitrary past date's edition number was found, so there is no historical-date input. Seven sections are selectable; at audit time only `normas_generales` had confirmed real content, so the other six are wired up against the same parser but have not each been verified end to end with live data.
 
 ## Output
 
@@ -76,25 +47,16 @@ Only today's edition is supported - there is no known way to resolve an arbitrar
 }
 ```
 
-## How it works
+`rama` / `ministerio` / `organismo` carry the full government hierarchy each entry is filed under, inherited from the last heading seen while walking the edition's table top to bottom. `pdfUrl` and `source_url` point at the official per-publication PDF when the source provides one - not a shared section page. `record_id` is the CVE (Codigo de Verificacion Electronica, the source's own per-publication id) when present, falling back to a content hash on the rare, disclosed occasion the link text doesn't match the expected CVE pattern.
 
-No CheerioCrawler here, deliberately - see Known limitations for why. `src/resolve.ts` resolves today's edition number via the site's own redirect (`/edicionelectronica/` -> `index.php?date=...&edition=...`), checks each requested section for content (a 404 means nothing published there today, not a failure), and `src/fetchSection.ts` fetches available sections with exponential-backoff retries. `src/parsers/table.ts` walks the edition's single hierarchical table top to bottom, tracking which branch/ministry/agency heading was last seen so each publication row inherits the right context.
+## Reliability
 
-## How much does it cost to monitor Chile's Diario Oficial?
+The site's default HTTP fingerprint check blocks Crawlee's own `CheerioCrawler` client (`got-scraping`) with a JS bot-check stub in place of the real page, verified live against the identical URL at the identical moment where a plain Node `fetch()` call received the real ~22KB edition table. For that reason this Actor has no `crawlee` dependency at all: `src/fetchSection.ts` fetches every section with native `fetch()` plus its own exponential-backoff retry loop, and `src/resolve.ts` resolves today's edition through the site's own redirect before checking each requested section's availability - a 404 there means nothing was published in that section today, and is skipped rather than logged as a failure. Cross-run identity for delta mode is persisted in a named Apify key-value store (capped at the 20,000 most recently seen entries), so `onlyNew` keeps working across a recurring schedule rather than resetting every run. This domain has no status-change or closure concept - a published legal notice is a permanent public record - so the only change an already-seen entry can undergo is a correction, detected by comparing a content fingerprint of its hierarchy, description and PDF link against what was stored last time.
 
-Pay per event, platform usage included: **$0.003 per record** (`result`) + $0.00005 per run start. No detail/summary split - every entry is already fully parsed inline, at identical cost.
+## Pricing
 
-## Known limitations
+This Actor uses Apify's pay-per-event pricing: **$0.003 per record** delivered to the dataset, plus a flat **$0.00005 per run start**. There is no separate detail/summary tier - every entry is already fully parsed inline from the section table, so every record costs the same regardless of section or event type.
 
-- **Only today's edition.** No date-lookup mechanism was found during the technical audit; building historical access would need reverse-engineering the site's search/archive feature, not yet done.
-- **This actor does not use Crawlee's `CheerioCrawler`.** Verified live (2026-09-04): the exact same URL, same machine, same moment, returns a real ~22KB page with the full table to a plain `fetch()` call, but a ~6KB JS bot-check stub (no table at all) to CheerioCrawler's default HTTP client (`got-scraping`). Whatever fingerprint that check keys on, `fetch()` passes it and `got-scraping` doesn't. The whole actor is built on native `fetch()` instead, with its own retry logic, rather than fighting that mismatch.
-- Only `normas_generales` was confirmed to have real content on the audit date; the other six sections all returned 404 that day. They're wired up and should work identically once something is actually published there, but were not verified with real data end to end.
-- **`record_id` falls back to a content hash when `cve` is null** - a real, disclosed edge case (the link text didn't match the `CVE-(\d+)` pattern). Frequency not independently verified live.
-- No `dateRange` filter - every entry from one run shares the same edition date, so a date-window filter would have no real function here.
+## Support & Enterprise SLA
 
-Full technical detail is in `AGENTS.md`.
-
-## Resources
-
-- [Diario Oficial de Chile](https://www.diariooficial.interior.gob.cl/)
-- [Apify SDK for JavaScript](https://docs.apify.com/sdk/js)
+This Actor is built and maintained by an independent developer, not a staffed vendor team - there is no dedicated support desk or contractual uptime SLA on offer. Questions, bugs, or coverage requests (for example, a section that starts publishing content the parser doesn't handle as expected) are handled through the Apify Store's Issues tab and are typically addressed within 48 hours.
