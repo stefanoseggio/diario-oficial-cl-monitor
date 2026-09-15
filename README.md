@@ -117,6 +117,43 @@ Each dataset record looks like this:
 | `event_type` / `is_new` | `NEW_LISTING`, `UPDATED`, or `UNCHANGED` (only surfaced when `onlyNew` is off), plus a boolean flag for whether this id was already in the persisted seen-set. |
 | `contentHash` / `scrapedAt` | The sha1 fingerprint used to detect `UPDATED` corrections between runs, and the ISO timestamp of extraction. |
 
+## Instant Terminal Run (cURL)
+
+Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
+
+```bash
+curl -X POST "https://api.apify.com/v2/acts/qfBeEKuLfYUw9UOuW/run-sync-get-dataset-items?token=<YOUR_API_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "maxItems": 50,
+  "onlyNew": true
+}'
+```
+
+## Sample Extracted Dataset (JSON)
+
+One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
+
+```json
+{
+  "rama": "Poder Ejecutivo",
+  "ministerio": "Ministerio de Hacienda",
+  "organismo": "Servicio de Impuestos Internos",
+  "descripcion": "Resolucion Exenta que modifica instrucciones sobre declaracion jurada N 1948",
+  "pdfUrl": "https://www.diariooficial.interior.gob.cl/publicaciones/2026/09/15/45305/01/2465981.pdf",
+  "source_url": "https://www.diariooficial.interior.gob.cl/publicaciones/2026/09/15/45305/01/2465981.pdf",
+  "cve": "2465981",
+  "record_id": "2465981",
+  "seccion": "normas_generales",
+  "edicion": "45305",
+  "fecha": "15-09-2026",
+  "event_type": "NEW_LISTING",
+  "is_new": true,
+  "contentHash": "1f4b7d03a8f1e6c9b2d45071c8e3f6b9d2a5c8e",
+  "scrapedAt": "2026-09-15T13:00:04.000Z"
+}
+```
+
 ## Pricing (Pay-Per-Event)
 
 | Event | Price | Triggered when |
