@@ -1,7 +1,7 @@
 <h1 align="center">Diario Oficial Chile - Laws & Decrees Delta Feed</h1>
 
 <p align="center">
-  <strong>A pay-per-event monitor for Chile's official gazette — laws, decrees and resolutions, extracted the day they publish.</strong>
+  <strong>A pay-per-event monitor for Chile's official gazette — laws, decrees and resolutions, extracted the day they publish, on a schedule you configure.</strong>
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ flowchart LR
     H -->|no| J["Keep every classified record"]
     I --> K["Push to dataset"]
     J --> K
-    K --> L["Charge: result event — $0.003 per record"]
+    K --> L["Charge: result event"]
 ```
 
 A section with nothing published that day returns a 404 from the source and is skipped as expected, not logged as a failure — this domain has no "closed" or status-change concept, since a published legal notice is a permanent public record. The only thing an already-seen entry can do is get corrected, which is why `UPDATED` exists alongside `NEW_LISTING`.
@@ -59,25 +59,30 @@ A section with nothing published that day returns a 404 from the source and is s
 | Direct per-publication PDF link (`pdfUrl` / `source_url`) | Points at the official PDF when the source provides one, not a shared section page |
 | Section selection (`sections`) | 7 selectable sections; `normas_generales` is confirmed live, the rest share the same parser |
 | Delta mode (`onlyNew`) | Persisted key-value store tracks up to 20,000 recently seen entries across runs |
-| Correction detection (`event_type: UPDATED`) | sha1 content fingerprint over hierarchy + description + PDF link, compared run to run |
+| Correction detection (`event_type: UPDATED`) | SHA-1 content fingerprint over hierarchy + description + PDF link, compared run to run |
 | Event-type filter (`eventTypes`) | Deliver `NEW_LISTING`, `UPDATED`, or both, when `onlyNew` is on |
 | Hard result cap (`maxItems`) | Caps total publications returned per run across all selected sections |
 | No Crawlee dependency | The source blocks Crawlee's `CheerioCrawler` (`got-scraping`) fingerprint outright; this Actor fetches with plain `fetch()` instead |
 
-## Input
+## Cost & BYOK Disclosure
 
-| Field | Type | Default | Description |
-| --- | --- | --- | --- |
-| `sections` | array | `["normas_generales"]` | Which of the 7 edition sections to fetch: `normas_generales`, `avisos_destacados`, `marcas_patentes`, `normas_particulares`, `publicaciones_judiciales`, `empresas_cooperativas`, `bom`. A section with nothing published that day returns 404 and is skipped, not treated as an error. |
-| `maxItems` | integer | `300` | Hard cap on the number of publications returned this run, across all selected sections. |
-| `onlyNew` | boolean | `false` | Delta mode: return only `NEW_LISTING` (never seen) or `UPDATED` (a correction to a known entry, same CVE, amended content) since a prior run today, tracked in a named key-value store. |
-| `eventTypes` | array | `["NEW_LISTING", "UPDATED"]` | Which of those two event kinds to deliver when `onlyNew` is on; ignored (everything delivered) when it's off. |
+**Pricing model:** pay-per-event, one flat metered event — no separate detail/summary tier and no compute charge on top.
 
-Only today's edition is retrievable — the Actor has no historical-date input, for reasons covered under Known limitations below.
+| Event | Price | Triggered when |
+| --- | --- | --- |
+| `result` (gazette publication) | $0.003 | Once per publication record pushed to the dataset |
 
-## Quick start
+There's only one metered event, and it's a flat rate: every entry is already fully parsed inline from the section table on the way in, so a record from `normas_generales` costs the same as one from `bom`, and `NEW_LISTING` costs the same as `UPDATED` — no hidden per-section markup. Always confirm the current rate on the [Store pricing tab](https://apify.com/stefano_seggio/diario-oficial-cl-monitor) before estimating cost at scale.
 
-Run it directly with the Apify CLI — this pulls today's Normas Generales edition, capped at 100 entries, in delta mode:
+**Delta suppression, never a refund.** Every entry is fingerprinted with a SHA-1 hash over its government hierarchy, description and PDF link (`src/fingerprint.ts`). A publication whose fingerprint matches what was already recorded for that CVE (or content-hash fallback id) in the persisted key-value store is classified `UNCHANGED` and is never pushed to the dataset — that comparison happens *before* delivery, so an unchanged entry is simply never billed, not refunded after the fact.
+
+**BYOK:** This Actor requires no third-party API key. The Diario Oficial is a public Chilean government gazette with no login wall or provider key of any kind.
+
+## Quickstart
+
+Run it directly with the Apify CLI, the REST API, or the `apify-client` SDK in Python or Node.js — this pulls today's Normas Generales edition, capped at 100 entries, in delta mode.
+
+### Apify CLI
 
 ```bash
 apify call diario-oficial-cl-monitor --input '{
@@ -88,36 +93,7 @@ apify call diario-oficial-cl-monitor --input '{
 }'
 ```
 
-Each dataset record looks like this:
-
-```json
-{
-  "rama": "PODER EJECUTIVO",
-  "ministerio": "MINISTERIO DE ECONOMIA, FOMENTO Y TURISMO",
-  "organismo": "Subsecretaria de Pesca y Acuicultura",
-  "descripcion": "Extracto de resolucion exenta numero 2.092, de 2026.- Modifica resolucion N 159 exenta, de 2026",
-  "pdfUrl": "https://www.diariooficial.interior.gob.cl/publicaciones/2026/09/04/44542/01/2865015.pdf",
-  "cve": "2865015",
-  "seccion": "normas_generales",
-  "fecha": "04-09-2026",
-  "event_type": "NEW_LISTING",
-  "record_id": "2865015"
-}
-```
-
-## Output fields
-
-| Field | Description |
-| --- | --- |
-| `rama` / `ministerio` / `organismo` | Branch of government, ministry, and sub-agency the entry is filed under, inherited from the last heading walked in the edition table. |
-| `descripcion` | The publication entry text itself. |
-| `pdfUrl` / `source_url` | Direct link to the official per-publication PDF, when the source provides one. |
-| `cve` / `record_id` | The Codigo de Verificacion Electronica (the source's own per-publication id); `record_id` falls back to a content hash on the rare occasion the link text doesn't match the expected CVE pattern. |
-| `seccion` / `edicion` / `fecha` | Which section, edition number, and edition date (`DD-MM-YYYY`) the entry belongs to. |
-| `event_type` / `is_new` | `NEW_LISTING`, `UPDATED`, or `UNCHANGED` (only surfaced when `onlyNew` is off), plus a boolean flag for whether this id was already in the persisted seen-set. |
-| `contentHash` / `scrapedAt` | The sha1 fingerprint used to detect `UPDATED` corrections between runs, and the ISO timestamp of extraction. |
-
-## Instant Terminal Run (cURL)
+### cURL (instant, synchronous)
 
 Runs synchronously and returns the resulting dataset items directly in the response - no polling needed. Get your token from [console.apify.com/settings/integrations](https://console.apify.com/settings/integrations).
 
@@ -130,7 +106,66 @@ curl -X POST "https://api.apify.com/v2/acts/qfBeEKuLfYUw9UOuW/run-sync-get-datas
 }'
 ```
 
-## Sample Extracted Dataset (JSON)
+### Python (`apify-client`)
+
+```python
+import os
+from apify_client import ApifyClient
+
+client = ApifyClient(os.environ["APIFY_TOKEN"])
+
+run_input = {
+    "sections": ["normas_generales"],
+    "maxItems": 100,
+    "onlyNew": True,
+    "eventTypes": ["NEW_LISTING", "UPDATED"],
+}
+
+run = client.actor("stefano_seggio/diario-oficial-cl-monitor").call(run_input=run_input)
+
+dataset_items = client.dataset(run["defaultDatasetId"]).list_items().items
+for item in dataset_items:
+    print(f"- [{item['event_type']}] {item['ministerio']}: {item['descripcion']}")
+```
+
+A full runnable version of this script is at `examples/run_monitor.py` in this repo.
+
+### Node.js (`apify-client`)
+
+```javascript
+import { ApifyClient } from 'apify-client';
+
+const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
+
+const run = await client.actor('stefano_seggio/diario-oficial-cl-monitor').call({
+  sections: ['normas_generales'],
+  maxItems: 100,
+  onlyNew: true,
+  eventTypes: ['NEW_LISTING', 'UPDATED'],
+});
+
+const { items } = await client.dataset(run.defaultDatasetId).listItems();
+for (const item of items) {
+  console.log(`- [${item.event_type}] ${item.ministerio}: ${item.descripcion}`);
+}
+```
+
+A full runnable version (CommonJS) is at `examples/run-monitor.js` in this repo.
+
+## Input & Output Schema
+
+### Input
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `sections` | array | `["normas_generales"]` | Which of the 7 edition sections to fetch: `normas_generales`, `avisos_destacados`, `marcas_patentes`, `normas_particulares`, `publicaciones_judiciales`, `empresas_cooperativas`, `bom`. A section with nothing published that day returns 404 and is skipped, not treated as an error. |
+| `maxItems` | integer | `300` | Hard cap on the number of publications returned this run, across all selected sections. |
+| `onlyNew` | boolean | `false` | Delta mode: return only `NEW_LISTING` (never seen) or `UPDATED` (a correction to a known entry, same CVE, amended content) since a prior run today, tracked in a named key-value store. |
+| `eventTypes` | array | `["NEW_LISTING", "UPDATED"]` | Which of those two event kinds to deliver when `onlyNew` is on; ignored (everything delivered) when it's off. |
+
+Only today's edition is retrievable — the Actor has no historical-date input, for reasons covered under Known limitations below.
+
+### Output
 
 One real record from this Actor's own dataset, matching `.actor/dataset_schema.json`:
 
@@ -154,13 +189,15 @@ One real record from this Actor's own dataset, matching `.actor/dataset_schema.j
 }
 ```
 
-## Pricing (Pay-Per-Event)
-
-| Event | Price | Triggered when |
-| --- | --- | --- |
-| `result` (gazette publication) | $0.003 | Once per publication record pushed to the dataset |
-
-There's only one metered event, and it's a flat rate: every entry is already fully parsed inline from the section table on the way in, so a record from `normas_generales` costs the same as one from `bom`, and `NEW_LISTING` costs the same as `UPDATED` — no separate detail/summary tier to upsell, no hidden per-section markup.
+| Field | Description |
+| --- | --- |
+| `rama` / `ministerio` / `organismo` | Branch of government, ministry, and sub-agency the entry is filed under, inherited from the last heading walked in the edition table. |
+| `descripcion` | The publication entry text itself. |
+| `pdfUrl` / `source_url` | Direct link to the official per-publication PDF, when the source provides one. |
+| `cve` / `record_id` | The Codigo de Verificacion Electronica (the source's own per-publication id); `record_id` falls back to a content hash on the rare occasion the link text doesn't match the expected CVE pattern. |
+| `seccion` / `edicion` / `fecha` | Which section, edition number, and edition date (`DD-MM-YYYY`) the entry belongs to. |
+| `event_type` / `is_new` | `NEW_LISTING`, `UPDATED`, or `UNCHANGED` (only surfaced when `onlyNew` is off), plus a boolean flag for whether this id was already in the persisted seen-set. |
+| `contentHash` / `scrapedAt` | The SHA-1 fingerprint used to detect `UPDATED` corrections between runs, and the ISO timestamp of extraction. |
 
 ## Why not just scrape it yourself
 
@@ -175,9 +212,20 @@ There's only one metered event, and it's a flat rate: every entry is already ful
 - Of the seven selectable sections, only `normas_generales` had confirmed real content at audit time; the other six are wired against the same parser but have not each been verified end-to-end with live data.
 - This Actor is maintained by an independent developer, not a staffed vendor team — there is no contractual uptime SLA. Bugs and coverage requests are handled through the Apify Store's Issues tab, typically within 48 hours.
 
-## Programmatic usage
+## Contributing & Local Setup
 
-`run-monitor.js` (Node.js, `apify-client`) and `run_monitor.py` (Python, `apify-client`) are minimal, runnable examples that call this Actor by ID (`qfBeEKuLfYUw9UOuW`), wait for the run, and read back the resulting dataset items.
+This repository contains the Actor's real, buildable TypeScript source (`src/`), not just documentation:
+
+```bash
+git clone https://github.com/stefanoseggio/diario-oficial-cl-monitor.git
+cd diario-oficial-cl-monitor
+npm install
+apify login              # paste your Apify API token
+npm run start:dev        # tsx src/main.ts - runs the Actor locally against the real source
+npm test                 # vitest run
+```
+
+`npm run build` compiles with `tsc`, and `npm run lint` / `npm run format` run this repo's ESLint/Prettier config. Found a bug, or want a new section, output field, or historical-date capability covered? Open an issue or pull request on this GitHub repo, or use the **Issues** tab on the [Apify Store listing](https://apify.com/stefano_seggio/diario-oficial-cl-monitor) for operational reports against the live Actor.
 
 ---
 
