@@ -20,7 +20,7 @@ describe.skipIf(process.env.CI)('fetchSection against the live Diario Oficial', 
         const edition = resolveTodayEdition();
         const url = buildSectionUrl('normas_generales');
 
-        const entries = await fetchSection({
+        const { entries, headingsEncountered, noPublicationsNoticeFound } = await fetchSection({
             url,
             seccion: 'normas_generales',
             edicion: edition.edicion,
@@ -28,6 +28,16 @@ describe.skipIf(process.env.CI)('fetchSection against the live Diario Oficial', 
         });
 
         expect(Array.isArray(entries)).toBe(true);
+        expect(typeof headingsEncountered).toBe('boolean');
+        expect(typeof noPublicationsNoticeFound).toBe('boolean');
+        // On a genuine quiet day the live page has NO table/headings at all - just the site's own
+        // "nothing published" notice (verified live, 2026-09-19: true of all 7 sections that day).
+        // So at least one of the two signals must be true whenever there are zero entries; only
+        // when BOTH are false (neither ever observed live) would main.ts treat it as a possible
+        // structural break instead of a quiet day.
+        if (entries.length === 0) {
+            expect(headingsEncountered || noPublicationsNoticeFound).toBe(true);
+        }
         for (const entry of entries) {
             expect(typeof entry.descripcion).toBe('string');
             expect(entry.descripcion.length).toBeGreaterThan(0);

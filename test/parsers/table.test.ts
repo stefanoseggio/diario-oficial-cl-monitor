@@ -28,9 +28,14 @@ const EDITION_HTML = [
 describe('parseTable', () => {
     it('tracks the rama/ministerio/organismo hierarchy per content row', () => {
         const $ = cheerio.load(EDITION_HTML);
-        const entries = parseTable($, { seccion: 'normas_generales', edicion: '44542', fecha: '04-09-2026' });
+        const { entries, headingsEncountered } = parseTable($, {
+            seccion: 'normas_generales',
+            edicion: '44542',
+            fecha: '04-09-2026',
+        });
 
         expect(entries).toHaveLength(2);
+        expect(headingsEncountered).toBe(true);
         expect(entries[0]).toEqual({
             rama: 'PODER EJECUTIVO',
             ministerio: 'MINISTERIO DE ECONOMIA, FOMENTO Y TURISMO',
@@ -47,15 +52,50 @@ describe('parseTable', () => {
 
     it('resets organismo (but not ministerio) when a new title5 appears under the same ministry', () => {
         const $ = cheerio.load(EDITION_HTML);
-        const entries = parseTable($, { seccion: 'normas_generales', edicion: '44542', fecha: '04-09-2026' });
+        const { entries } = parseTable($, { seccion: 'normas_generales', edicion: '44542', fecha: '04-09-2026' });
 
         expect(entries[1].rama).toBe('PODER EJECUTIVO');
         expect(entries[1].ministerio).toBe('MINISTERIO DE TRANSPORTES Y TELECOMUNICACIONES');
         expect(entries[1].organismo).toBe('Subsecretaria de Telecomunicaciones');
     });
 
-    it('returns an empty array for a table with no content rows', () => {
+    it('returns an empty entries array but headingsEncountered=true when headings exist with no content rows', () => {
         const $ = cheerio.load('<table><tr><td class="title3">PODER EJECUTIVO</td></tr></table>');
-        expect(parseTable($, { seccion: 'normas_generales', edicion: '1', fecha: '01-01-2026' })).toEqual([]);
+        expect(parseTable($, { seccion: 'normas_generales', edicion: '1', fecha: '01-01-2026' })).toEqual({
+            entries: [],
+            headingsEncountered: true,
+            noPublicationsNoticeFound: false,
+        });
+    });
+
+    it('reports noPublicationsNoticeFound=true on the site\'s real genuine-quiet-day page (no table at all)', () => {
+        // Reconstructed from a real fetch of index.php on 2026-09-19, a Saturday with no edition
+        // published in any of the 7 sections: the page has NO <table>, NO title3/4/5 headings -
+        // just this explicit notice. Confirms headingsEncountered=false is the NORM on a genuine
+        // quiet day, not evidence of a break - noPublicationsNoticeFound is what actually
+        // distinguishes it. See main.ts's zero-entries handling.
+        const $ = cheerio.load(
+            '<div class="containerdate2">LEYES, REGLAMENTOS...</div>' +
+                '<section class="norma_general"><div class="wrapsection">' +
+                '<p class="nofound">No existen publicaciones en esta edición en la fecha seleccionada</p>' +
+                '</div></section>',
+        );
+        expect(parseTable($, { seccion: 'normas_generales', edicion: '1', fecha: '19-09-2026' })).toEqual({
+            entries: [],
+            headingsEncountered: false,
+            noPublicationsNoticeFound: true,
+        });
+    });
+
+    it('returns both signals false when the table has no title3/title4/title5 cells and no notice - the real structural-break case', () => {
+        // What a site redesign changing all of these markers would look like: a 200 page with
+        // neither the table/heading markup NOR the site's own "nothing published" notice -
+        // distinct from a genuine quiet day (previous test), which always shows the notice.
+        const $ = cheerio.load('<table><tr><td class="unknown">Something else</td></tr></table>');
+        expect(parseTable($, { seccion: 'normas_generales', edicion: '1', fecha: '01-01-2026' })).toEqual({
+            entries: [],
+            headingsEncountered: false,
+            noPublicationsNoticeFound: false,
+        });
     });
 });
