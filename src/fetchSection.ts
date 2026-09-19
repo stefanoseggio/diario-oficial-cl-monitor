@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 
-import { parseTable } from './parsers/table.js';
-import type { GazetteEntry, SectionName } from './types.js';
+import { parseTable, type ParseTableResult } from './parsers/table.js';
+import type { SectionName } from './types.js';
 
 interface FetchSectionOptions {
     url: string;
@@ -28,7 +28,7 @@ async function sleep(ms: number): Promise<void> {
 // transient network failures, not for beating that check - if this
 // stops working, the fix is a different client fingerprint, not more
 // retries.
-export async function fetchSection(options: FetchSectionOptions): Promise<GazetteEntry[]> {
+export async function fetchSection(options: FetchSectionOptions): Promise<ParseTableResult> {
     const { url, seccion, edicion, fecha, maxRetries = 4, baseDelayMs = 1000 } = options;
 
     let lastError: Error = new Error('unreachable');
