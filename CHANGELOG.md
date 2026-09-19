@@ -1,5 +1,24 @@
 # Changelog
 
+## [3.0.0](https://github.com/stefanoseggio/diario-oficial-cl-monitor/compare/diario-oficial-cl-monitor-v2.0.0...diario-oficial-cl-monitor-v3.0.0) (2026-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* v2.0 delta engine - the first this actor has ever had, domain-honest
+
+### Features
+
+* v2.0 delta engine - the first this actor has ever had, domain-honest ([e0e74ff](https://github.com/stefanoseggio/diario-oficial-cl-monitor/commit/e0e74ffb190326df40e7c4cd3746f918e4ff41fe))
+
+
+### Bug Fixes
+
+* adapt to Diario Oficial site change breaking edition resolution ([d82d211](https://github.com/stefanoseggio/diario-oficial-cl-monitor/commit/d82d2119c84967342884043bb5c306d34b352dc8))
+* bump transitive adm-zip to 0.6.1, resolving a HIGH-severity CVE ([#9](https://github.com/stefanoseggio/diario-oficial-cl-monitor/issues/9)) ([2d73ccb](https://github.com/stefanoseggio/diario-oficial-cl-monitor/commit/2d73ccbd9fbf4b3a4d2cac1e391e17cd258a7bbb))
+* **ci:** pass RELEASE_PLEASE_TOKEN so release PRs skip the bot-approval gate ([44dee2b](https://github.com/stefanoseggio/diario-oficial-cl-monitor/commit/44dee2b1703140d390a7b8b63e9eaae58d8f65fc))
+* distinguish genuine quiet day from a possible structural break ([#8](https://github.com/stefanoseggio/diario-oficial-cl-monitor/issues/8)) ([bc4bde1](https://github.com/stefanoseggio/diario-oficial-cl-monitor/commit/bc4bde1daa88095d4fc74411454404e555f948ed))
+
 ## 2.0.0 - 2026-09-08
 
 The first delta engine this actor has ever had - previously it simply re-extracted the full edition every run with no notion of "seen before". See AGENTS.md "Delta engine v2" for the full technical reasoning.
