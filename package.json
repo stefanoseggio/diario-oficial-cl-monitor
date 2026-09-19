@@ -1,6 +1,6 @@
 {
   "name": "diario-oficial-cl-monitor",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
   "description": "Diario Oficial Chile Monitor: extracts today's official gazette entries (laws, decrees, resolutions) from Chile's Diario Oficial, with full hierarchy (branch, ministry, agency) and direct PDF links.",
   "engines": {
