@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSectionUrl, isSectionAvailable, resolveTodayEdition, SECTION_PATHS } from '../src/resolve.js';
+import { buildSectionUrl, resolveTodayEdition, SECTION_PATHS } from '../src/resolve.js';
 
 describe('buildSectionUrl', () => {
+    // SITE CHANGE, 2026-09-19: the site no longer accepts/needs date+edition query params (see
+    // resolve.ts) - live-verified its own current section links are bare, e.g. "index.php?".
     it('builds the correct URL per section under /edicionelectronica/, not the root', () => {
-        const url = buildSectionUrl('marcas_patentes', { fecha: '04-09-2026', edicion: '44542' });
-        expect(url).toBe(
-            'https://www.diariooficial.interior.gob.cl/edicionelectronica/marcas_patentes.php?date=04-09-2026&edition=44542',
-        );
+        const url = buildSectionUrl('marcas_patentes');
+        expect(url).toBe('https://www.diariooficial.interior.gob.cl/edicionelectronica/marcas_patentes.php?');
     });
 
     it('has a path entry for every declared section', () => {
@@ -17,20 +17,15 @@ describe('buildSectionUrl', () => {
     });
 });
 
-// Live checks against the real site - skipped in CI (same lesson as
-// pba-tenders-monitor: don't make CI depend on an external host with no
-// uptime guarantee). Run locally with `npm test` to actually exercise
-// these against the live source.
-describe.skipIf(process.env.CI)('live resolution against the real site', () => {
-    it('resolves a real date/edition for today', async () => {
-        const edition = await resolveTodayEdition();
-        expect(edition.fecha).toMatch(/^\d{2}-\d{2}-\d{4}$/);
-        expect(edition.edicion).toMatch(/^\d+$/);
-    }, 15_000);
-
-    it('reports normas_generales as available and a near-certainly-empty section as unavailable', async () => {
-        const edition = await resolveTodayEdition();
-        const normasUrl = buildSectionUrl('normas_generales', edition);
-        expect(await isSectionAvailable(normasUrl)).toBe(true);
-    }, 15_000);
+describe('resolveTodayEdition', () => {
+    // No longer a network call (see resolve.ts) - a real assertion against Intl's own
+    // independent computation for the same timezone, not just a format regex.
+    it('returns fecha/edicion matching Chile-local today, computed independently', () => {
+        const expected = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' })
+            .format(new Date())
+            .replaceAll('-', '');
+        const edition = resolveTodayEdition();
+        expect(edition.edicion).toBe(expected);
+        expect(edition.fecha).toBe(`${expected.slice(6, 8)}-${expected.slice(4, 6)}-${expected.slice(0, 4)}`);
+    });
 });

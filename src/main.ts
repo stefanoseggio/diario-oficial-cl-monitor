@@ -2,7 +2,7 @@ import { Actor, log } from 'apify';
 
 import { buildRecord, classifyEntries, passesEventTypes, passesOnlyNew } from './delta.js';
 import { fetchSection } from './fetchSection.js';
-import { buildSectionUrl, isSectionAvailable, resolveTodayEdition } from './resolve.js';
+import { buildSectionUrl, resolveTodayEdition } from './resolve.js';
 import { loadState, mergeEntries, saveState } from './state.js';
 import type { ActorInput } from './types.js';
 
@@ -16,7 +16,7 @@ async function run(): Promise<void> {
     const input = (await Actor.getInput<ActorInput>()) ?? ({} as ActorInput);
     const { sections = ['normas_generales'], maxItems = 300, onlyNew = false, eventTypes } = input;
 
-    const edition = await resolveTodayEdition();
+    const edition = resolveTodayEdition();
     log.info(`Edicion resuelta: ${edition.edicion} (${edition.fecha})`);
 
     const scrapedAtRunStart = new Date().toISOString();
@@ -30,14 +30,14 @@ async function run(): Promise<void> {
     for (const seccion of sections) {
         if (pushed >= maxItems) break;
 
-        const url = buildSectionUrl(seccion, edition);
+        const url = buildSectionUrl(seccion);
 
-        const available = await isSectionAvailable(url);
-        if (!available) {
-            log.info(`Seccion "${seccion}" sin publicaciones hoy (404 esperado) - omitida.`);
-            continue;
-        }
-
+        // SITE CHANGE, 2026-09-19: an empty section used to 404; it now returns a normal 200
+        // page with zero content rows (verified live: all 7 sections did this simultaneously on
+        // a Saturday with no edition published at all). There's no longer a way to tell "empty"
+        // from "has content" without parsing the page, so the separate pre-check is gone -
+        // fetchSection() itself now doubles as that check, an empty array meaning "nothing
+        // published in this section today" rather than a failure.
         let entries;
         try {
             entries = await fetchSection({ url, seccion, edicion: edition.edicion, fecha: edition.fecha });
@@ -46,6 +46,11 @@ async function run(): Promise<void> {
             const errorMessage = error instanceof Error ? error.message : String(error);
             log.error(`Seccion "${seccion}" fallo tras reintentos: ${errorMessage}`, { url });
             await Actor.pushData({ url, seccion, error: errorMessage, scrapedAt: new Date().toISOString() });
+            continue;
+        }
+
+        if (entries.length === 0) {
+            log.info(`Seccion "${seccion}" sin publicaciones hoy - omitida.`);
             continue;
         }
 

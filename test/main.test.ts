@@ -11,9 +11,14 @@ import { buildSectionUrl, resolveTodayEdition } from '../src/resolve.js';
 // but not fetch(), is why there is no crawler here at all (see
 // fetchSection.ts).
 describe.skipIf(process.env.CI)('fetchSection against the live Diario Oficial', () => {
-    it('parses real publications from todays normas_generales edition', async () => {
-        const edition = await resolveTodayEdition();
-        const url = buildSectionUrl('normas_generales', edition);
+    // Not every day has a normas_generales publication (verified live, 2026-09-19: a Saturday
+    // with zero content rows across all 7 sections - see resolve.ts). This asserts the real,
+    // current shape either way rather than assuming today happens to have content: an empty
+    // array is a legitimate, non-throwing result, and every entry that IS present must be
+    // real and correctly stamped.
+    it('parses todays normas_generales edition without throwing, and any entries present are real', async () => {
+        const edition = resolveTodayEdition();
+        const url = buildSectionUrl('normas_generales');
 
         const entries = await fetchSection({
             url,
@@ -22,13 +27,13 @@ describe.skipIf(process.env.CI)('fetchSection against the live Diario Oficial', 
             fecha: edition.fecha,
         });
 
-        expect(entries.length).toBeGreaterThan(0);
-
-        const first = entries[0];
-        expect(typeof first.descripcion).toBe('string');
-        expect(first.descripcion.length).toBeGreaterThan(0);
-        expect(first.seccion).toBe('normas_generales');
-        expect(first.edicion).toBe(edition.edicion);
-        expect(typeof first.scrapedAt).toBe('string');
+        expect(Array.isArray(entries)).toBe(true);
+        for (const entry of entries) {
+            expect(typeof entry.descripcion).toBe('string');
+            expect(entry.descripcion.length).toBeGreaterThan(0);
+            expect(entry.seccion).toBe('normas_generales');
+            expect(entry.edicion).toBe(edition.edicion);
+            expect(typeof entry.scrapedAt).toBe('string');
+        }
     }, 30_000);
 });
