@@ -56,6 +56,24 @@ with its own exponential-backoff retry loop. Do not "simplify" this back
 to CheerioCrawler without re-verifying live first; that would silently
 reintroduce the empty-page failure.
 
+**`impit` is blocked too - do not adopt it here.** Tried 2026-09-19 as
+part of a fleet-wide TLS/JA3 fingerprint-hardening pass (`impit` gives
+requests a real Chrome/Firefox TLS+HTTP2 fingerprint instead of Node's
+native one - a genuine improvement on most of the fleet). Verified live,
+same site, same moment: `impit.fetch()` with `browser: 'chrome'` AND
+`browser: 'firefox'` both got served the exact same `bobcmn` bot-check
+stub as `got-scraping` above (~6-6.6KB, no `<table>`), while plain
+`fetch()` still got the real ~10.3KB page. This site's bot-check appears
+to specifically target known browser-impersonation TLS signatures
+(the same category of tooling as curl-impersonate, which `impit` and
+`got-scraping` both belong to), while Node's honest, non-spoofing
+fingerprint passes cleanly. **This actor stays on plain `fetch()`
+permanently** - it is the one place in the fleet where a more
+Chrome-like fingerprint is the wrong direction, not just unnecessary.
+Change was fully reverted, nothing shipped; if `impit` gains a
+non-browser-impersonating mode in a future version, re-verify live
+before trying again.
+
 **Cumulative `maxItems` across independent per-section requests is a
 real hazard, not just a style question.** A first draft used
 `request.userData.alreadyPushed` under a CheerioCrawler-router design -
